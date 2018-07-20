@@ -1,10 +1,10 @@
 <?php
 Global $conn;
  
-$servername = "localhost";
-$username = "u_bondsurety";
-$password = "lq80Hl2Lgxns4Ado14Ki";
-$dbname = "crm_bondsurety";
+$servername = "127.0.0.1";
+$username = "root";
+$password = "123";
+$dbname = "nathan";
 $pro_id = $_POST['product_id'];
 $conn = new mysqli($servername, $username, $password, $dbname);
  
