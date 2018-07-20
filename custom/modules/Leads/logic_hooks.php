@@ -1,0 +1,22 @@
+<?php
+// Do not store anything in this file that is not part of the array or the hook version.  This file will	
+// be automatically rebuilt in the future. 
+ $hook_version = 1; 
+$hook_array = Array(); 
+// position, file, function 
+$hook_array['before_save'] = Array(); 
+$hook_array['before_save'][] = Array(13, 'autoconvert', 'custom/hooks/lead_hook.php','lead_hook', 'updPerfomanceInfo');
+//$hook_array['before_save'][] = Array(77, 'updateGeocodeInfo', 'custom/modules/Leads/LeadsJjwg_MapsLogicHook.php','LeadsJjwg_MapsLogicHook', 'updateGeocodeInfo'); 
+$hook_array['before_save'][] = Array(1, 'Leads push feed', 'modules/Leads/SugarFeeds/LeadFeed.php','LeadFeed', 'pushFeed'); 
+
+$hook_array['before_save'][] = Array(5, 'Leads Policy Type Fix', 'custom/hooks/lead_distrib_hook.php','lead_distrib_hook', 'fix_type');
+$hook_array['before_save'][] = Array(7, 'Leads distrib', 'custom/hooks/lead_distrib_hook.php','lead_distrib_hook', 'disableNotifyCheck');
+
+$hook_array['after_ui_frame'] = Array(); 
+$hook_array['after_save'] = Array(); 
+$hook_array['after_save'][] = Array(77, 'updateRelatedMeetingsGeocodeInfo', 'custom/modules/Leads/LeadsJjwg_MapsLogicHook.php','LeadsJjwg_MapsLogicHook', 'updateRelatedMeetingsGeocodeInfo');
+$hook_array['after_save'][] = Array(99, 'Leads distrib', 'custom/hooks/lead_distrib_hook.php','lead_distrib_hook', 'do_distrib');
+
+$hook_array['after_save'][] = Array(13, 'autoconvert', 'custom/hooks/lead_hook.php','lead_hook', 'autoconvert');
+
+?>

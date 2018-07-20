@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<AsteriskProperties>
+  
+<AsteriskProperty><Asterisk>192.168.1.100|</Asterisk><username>admin|</username><password>elastix|</password><internalchannel>SIP|</internalchannel><externalchannel>DAHDI|</externalchannel><dbname>none|</dbname><dbusername>none|</dbusername><dbpassword>none|</dbpassword><url>http://localhost/crm|</url><crmusername>none|</crmusername><crmpassword>none|</crmpassword><sc>?</sc></AsteriskProperty></AsteriskProperties>
