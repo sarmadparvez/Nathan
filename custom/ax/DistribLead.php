@@ -37,11 +37,17 @@ class DistribLead{
 		$xtpl = new XTemplate(get_notify_template_file($current_language)); 
 		$xtpl = $bean->set_notification_body($xtpl, $bean); 
         //$xtpl->assign("ASSIGNED_USER", $bean->new_assigned_user_name);
-        if( !empty($data['primaryUser']) ){
+        /*if( !empty($data['primaryUser']) ){
     	$userDetails = BeanFactory::getBean('Users', $data['primaryUser']);
     	$xtpl->assign("ASSIGNED_USER", $userDetails->full_name); 
         }else{
         $xtpl->assign("ASSIGNED_USER", $bean->assigned_user_name);
+    	}*/
+    	if (!empty($bean->assigned_user_id)) {
+    		$userDetails = BeanFactory::getBean('Users', $bean->assigned_user_id);
+    		$xtpl->assign("ASSIGNED_USER", $userDetails->full_name);
+    	} else {
+    		return false;
     	}
         $xtpl->assign("ASSIGNER", $current_user->name);	
 		$template_name = $beanList[$bean->module_dir]; 
@@ -70,11 +76,11 @@ class DistribLead{
 		$mail->ClearAllRecipients();
 		
 		$main_user_id = '';
-		if( !empty($data['primaryUser']) ){
-			$main_user_id = $data['primaryUser'];
-		}else{
+		//if( !empty($data['primaryUser']) ){
+		//	$main_user_id = $data['primaryUser'];
+		//}else{
 			$main_user_id = $bean->assigned_user_id;
-		} 
+		//} 
 		if( !empty($main_user_id) ){
 			$user = BeanFactory::getBean('Users', $main_user_id); 
 			if( $user->status == 'Inactive' ){return false;}
@@ -84,7 +90,7 @@ class DistribLead{
 		}else{
 			return false;//missed main user
 		}
-		if(!empty($data['secondaryUsers']) && is_array($data['secondaryUsers']) ){
+/*		if(!empty($data['secondaryUsers']) && is_array($data['secondaryUsers']) ){
 			foreach($data['secondaryUsers'] as $i => $user_id){
 				$user = BeanFactory::getBean('Users', $user_id);
 				if( $user->status == 'Inactive' ){continue;}
@@ -94,7 +100,7 @@ class DistribLead{
 					$mail->AddCC($u_address, $locale->translateCharsetMIME(trim($user->name), 'UTF-8', $OBCharset));
 				}
 			}
-		}
+		}*/
 		$newline = "<br/>";
         //echo '</br>'.
 		$mail->Body = from_html(trim($xtpl->text($template_name)));

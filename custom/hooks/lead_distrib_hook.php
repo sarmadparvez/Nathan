@@ -4,7 +4,7 @@ class lead_distrib_hook
 {
     function fix_type(&$bean, $event, $arguments)
     {
-        if ($bean->date_entered == $bean->date_modified) {
+        if (!empty($bean->date_entered) && $bean->date_entered == $bean->date_modified) {
             if (empty($bean->coverage_type_c) && !empty($bean->aos_product_categories_id_c)) {
                 if ($bean->aos_product_categories_id_c == '58969f58-2d7f-6eb7-9b9e-5669c1f53421') {
                     $bean->coverage_type_c = 'TradeCreditWebsite';
@@ -27,12 +27,16 @@ class lead_distrib_hook
         $admin->saveSetting("notify", "on", false);
         global $current_user;
         global $assignedUserChanged;
-        if ($bean->fetched_row['assigned_user_id'] != $bean->assigned_user_id) {
+        global $timedate;
+
+        //override_lead_assignment is set from editview to detect if request is coming from UI or not
+        // Automatic lead assignment should not apply if request is coming from UI.
+        if ($bean->fetched_row['assigned_user_id'] != $bean->assigned_user_id && 
+            empty($_REQUEST['override_lead_assignment'])) {
             $assignedUserChanged = true;
             $bean->aos_product_categories_id_c = str_replace("%2D", "-", $bean->aos_product_categories_id_c);
             $bean->primary_address_state       = str_replace("%20", " ", $bean->primary_address_state);
-            $GLOBALS['log']->fatal('$bean->aos_product_categories_id_c : ',$bean->aos_product_categories_id_c);
-            $GLOBALS['log']->fatal('$bean->primary_address_state : ',$bean->primary_address_state);
+            
             if (empty($bean->lead_source)) {
                 $bean->lead_source = $this->remove_http($_SERVER['HTTP_ORIGIN']);
             }
@@ -42,15 +46,17 @@ class lead_distrib_hook
             require_once('custom/ax/DistribLead.php');
             $data = DistribLead::getExtractedDistribData($bean->aos_product_categories_id_c, $bean->primary_address_state);
             
-            $GLOBALS['log']->fatal('$data : ',$data);
-            
-            global $timedate;
             if (!empty($data['primaryUser'])) {
-                $GLOBALS['log']->fatal('assigned_user_id CHANGED ');
                 $bean->assigned_user_id        = $data['primaryUser'];
                 $bean->user_id_c               = $data['primaryUser'];
                 $bean->first_assignment_time_c = $timedate->nowDb();
             }
+        } else if (!empty($bean->assigned_user_id) && 
+            $bean->fetched_row['assigned_user_id'] != $bean->assigned_user_id &&
+            !empty($_REQUEST['override_lead_assignment']) && empty($bean->first_assignment_time_c)) {
+            // if assigned user is changed manually, second, thrid, fourth assignment 
+            //should happen automatically
+            $bean->first_assignment_time_c = $timedate->nowDb();
         }
     }
     function do_distrib(&$bean, $event, $arguments)

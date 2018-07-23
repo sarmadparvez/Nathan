@@ -1,0 +1,28 @@
+<?php
+
+$dictionary['Lead']['fields']['fourth_assignment_time_c'] = array(
+	'labelValue' => 'Fourth assignment time c',
+	'required' => false,
+	'source' => 'custom_fields',
+	'name' => 'fourth_assignment_time_c',
+	'vname' => 'LBL_FOURTH_ASSIGNMENT_TIME_C',
+	'type' => 'datetimecombo',
+	'massupdate' => '0',
+	'default' => '',
+	'no_default' => false,
+	'comments' => '',
+	'help' => '',
+	'importable' => 'true',
+	'duplicate_merge' => 'disabled',
+	'duplicate_merge_dom_value' => '0',
+	'audited' => false,
+	'inline_edit' => true,
+	'reportable' => true,
+	'unified_search' => false,
+	'merge_filter' => 'disabled',
+	'size' => '20',
+	'enable_range_search' => false,
+	'dbType' => 'datetime',
+	'id' => 'Leadsfourth_assignment_time_c',
+	'custom_module' => 'Leads',
+);

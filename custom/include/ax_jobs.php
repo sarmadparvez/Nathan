@@ -60,16 +60,36 @@ class ax_jobs {
 		return true;
 	}
 
-	static public function hotLead(){
-		global $db;
-		
+	/**
+	* Insert product category id's in temporary table
+	*/
+	static private function insertCategoryIdsInTempTable()
+	{
+		$db = DBManagerFactory::getInstance();
+		$db->query("DROP TEMPORARY TABLE IF EXISTS product_category_ids");
+		$temp_table_create = "CREATE TEMPORARY TABLE IF NOT EXISTS product_category_ids ( 
+				category_id CHAR(36),PRIMARY KEY (`category_id`))";
+		$db->query($temp_table_create);
+		$data = DistribLead::getDistribData();
+		if (!empty($data[0]['contacts'])) {
+			$ids = array_column($data[0]['contacts'], 'type');
+			$ids = array_unique($ids);
+			$sql = "INSERT INTO product_category_ids VALUES ('" . implode("'),('", $ids) . "')";
+			$db->query($sql);
+		}
+	}
+	
+
+	static public function hotLead()
+	{
+		global $db, $timedate;
 		require_once('custom/ax/DistribLead.php');
 		$json = DistribLead::getReminderData(true);
 		$array = json_decode(htmlspecialchars_decode($json), true);	
-		$second = $array[0]['second'];
-		$third = $array[0]['third'];
-		$randy = $array[0]['randy'];
-		$randyplus = $randy + 1;
+		$second = (int)$array[0]['second'];
+		$third = (int)$array[0]['third'];
+		$randy = (int)$array[0]['randy'];
+
 		$boss_email = 'don@bondsurety.ca';
 		$purav_email = 'purav@bondsurety.ca';
 		
@@ -78,52 +98,82 @@ class ax_jobs {
 
 		require_once('include/SugarPHPMailer.php');
 		
-		
-		$sql = " SELECT a.id, a.last_name, c.accept_status_c,  a.assigned_user_id, a.created_by, a.date_entered, TIMEDIFF('{$gmdate}', a.date_entered) as t, MINUTE(TIMEDIFF('{$gmdate}', a.date_entered)) as h, c.aos_product_categories_id_c, a.primary_address_state  ";
+		self::insertCategoryIdsInTempTable();
+		$sql = " SELECT a.id, a.last_name, c.accept_status_c, a.primary_address_state,
+			a.assigned_user_id, a.created_by, a.date_entered, 
+			TIMESTAMPDIFF(MINUTE,c.first_assignment_time_c,'{$gmdate}')  as mins_first,
+			TIMESTAMPDIFF(MINUTE,c.second_assignment_time_c,'{$gmdate}')  as mins_second,
+			TIMESTAMPDIFF(MINUTE,c.third_assignment_time_c,'{$gmdate}')  as mins_third,
+			c.aos_product_categories_id_c, a.primary_address_state, c.second_assignment_time_c, 
+			c.third_assignment_time_c, c.fourth_assignment_time_c  ";
 		$sql .= " FROM leads as a ";
-		$sql .= " LEFT JOIN leads_cstm as c ON c.id_c = a.id ";
-		$sql .= " WHERE  a.deleted = 0 AND  a.assigned_user_id <> a.created_by AND a.date_entered > '{$gmToday}' AND ( c.accept_status_c = 'none' OR c.accept_status_c = '' ) ";
-		$sql .= " HAVING (HOUR(t) = 0) AND ((MINUTE(t) >= ".$second.") AND (MINUTE(t) <= ".$randyplus."))";
-		$sql .= " ORDER BY a.date_entered DESC  ; ";
+		$sql .= " INNER JOIN leads_cstm as c ON c.id_c = a.id ";
+		//if (!empty($category_available)) {
+		// join with product category ids that are stored in mapping
+		$sql.= ' INNER JOIN product_category_ids pci on 
+					c.aos_product_categories_id_c = pci.category_id';
+		//}
+		$sql .= " WHERE (c.second_assignment_time_c IS NULL OR c.third_assignment_time_c IS NULL OR 
+				c.fourth_assignment_time_c IS NULL) AND
+    			a.deleted = 0
+				AND (c.accept_status_c = 'none'
+				OR c.accept_status_c = '')";
+
+		$sql .= " HAVING (mins_first >= ".$db->quoted($second). 
+				" OR mins_second >= " .$db->quoted($third).
+				" OR mins_third >= " .$db->quoted($randy).")";
+		$sql .= " ORDER BY a.date_entered DESC  ;";
 		$res = $db->query($sql);
+
 		while( $arr = $db->fetchByAssoc($res) ){
+
+			$state = empty($arr['primary_address_state']) ? '' : $arr['primary_address_state'];
+			// logic copied from lead_distrib_hook
+			if (!empty($state)) {
+				$state = str_replace("%20", " ", $state);
+			}
+			$data = DistribLead::getExtractedDistribData(
+				$arr['aos_product_categories_id_c'],
+				$state
+			);
+			if (empty($data)) {
+				continue;
+			}
 			
-			$data = DistribLead::getExtractedDistribData($arr['aos_product_categories_id_c'], '');
-			
-			//if($arr['h'] > 2){continue;}//test
+			//if($arr['mins'] > 2){continue;}//test
 			$leads = BeanFactory::getBean('Leads', $arr['id']);
+			// prevent lead before save hook which do the primary assignment
+			$_REQUEST['override_lead_assignment'] = "1";
+
 			if( !empty($leads->accept_status_c) && $leads->accept_status_c != 'accept'){
 				//$mail->ClearAllRecipients();
 				
 				//$mail->AddBCC('ross@bondsurety.ca');
 
-				if($arr['h'] == $second || $arr['h'] == ($second + 1)) {
+				if ($arr['mins_first'] >= $second && empty($arr['second_assignment_time_c'])) {
 					//$set_default = true;
 					if( !empty($data['secondaryUsers']) ){
-						global $timedate;
 						$leads->assigned_user_id = $data['secondaryUsers'];
 						$leads->user_id1_c = $data['secondaryUsers'];
 						$leads->second_assignment_time_c = $timedate->nowDb();
 						$leads->save(false);
+						DistribLead::sendAssignNotify($leads, $data);
 					}
 					
-				}
-				elseif($arr['h'] == $third || $arr['h'] == ($third + 1)) {
+				} elseif ($arr['mins_second'] >= $third && empty($arr['third_assignment_time_c'])) {
 					//$set_default = true;
 					if( !empty($data['thirdUsers']) ){
-						global $timedate;
 						$leads->assigned_user_id = $data['thirdUsers'];
 						$leads->user_id2_c = $data['thirdUsers'];
 						$leads->third_assignment_time_c = $timedate->nowDb();
 						$leads->save(false);
+						DistribLead::sendAssignNotify($leads, $data);
 					}
 					
-				}
-
-				elseif($arr['h'] == $randy || $arr['h'] == $randyplus){
+				} elseif ($arr['mins_third'] >= $randy && empty($arr['fourth_assignment_time_c']) 
+					&& !empty($data['forthUsers'])){
 					//if( !empty($data['reminderOne']) ){
 						//foreach($data['reminderOne'] as $i => $user_id){
-					global $timedate;
 					
 					$mail = new SugarPHPMailer();
 					$mail->setMailerForSystem();
@@ -179,7 +229,9 @@ color: #000;">Decline</a>';
 					$mail->Send();
 					//assign lead to randy
 					$leads->assigned_user_id = $data['forthUsers'];
+					$leads->fourth_assignment_time_c = $timedate->nowDb();
 					$leads->save(false);
+					$mail->SMTPClose();
 				}
 				
 			}
@@ -193,10 +245,9 @@ color: #000;">Decline</a>';
 				$GLOBALS['log']->fatal("HOT Lead Remainder error: ".$mail->ErrorInfo);
 			}*/
 		}
-		$mail->SMTPClose();
 		
 		return true;
-	}	
+	}
 	
 	static public function runOpenLeadReminder($debug = false){
 		global $db, $sugar_config;
